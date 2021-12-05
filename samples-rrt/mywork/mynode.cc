@@ -25,15 +25,15 @@ class Tic9 : public cSimpleModule
     simtime_t timeout;  // timeout
     cMessage *timeoutEvent;  // holds pointer to the timeout self-message
     int seq;  // message sequence number
-    cMessage *message;  // message that has to be re-sent on timeout
+    cPacket *packet;  // message that has to be re-sent on timeout
 
   public:
     Tic9();
     virtual ~Tic9();
 
   protected:
-    virtual cMessage *generateNewMessage();
-    virtual void sendCopyOf(cMessage *msg);
+    virtual cPacket *generateNewPacket();
+    virtual void sendCopyOf(cPacket *pkt);
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
 };
@@ -42,13 +42,14 @@ Define_Module(Tic9);
 
 Tic9::Tic9()
 {
-    timeoutEvent = message = nullptr;
+    timeoutEvent = nullptr;
+    packet = nullptr;
 }
 
 Tic9::~Tic9()
 {
     cancelAndDelete(timeoutEvent);
-    delete message;
+    delete packet;
 }
 
 void Tic9::initialize()
@@ -60,18 +61,20 @@ void Tic9::initialize()
 
     // Generate and send initial message.
     EV << "Sending initial message\n";
-    message = generateNewMessage();
-    sendCopyOf(message);
+    packet = generateNewPacket();
+    sendCopyOf(packet);
     scheduleAt(simTime()+timeout, timeoutEvent);
 }
 
 void Tic9::handleMessage(cMessage *msg)
 {
+   // cPacket *pkt=check_and_cast<cPacket *>(msg);
+
     if (msg == timeoutEvent) {
         // If we receive the timeout event, that means the packet hasn't
         // arrived in time and we have to re-send it.
         EV << "Timeout expired, resending message and restarting timer\n";
-        sendCopyOf(message);
+        sendCopyOf(packet);
         scheduleAt(simTime()+timeout, timeoutEvent);
     }
     else {  // message arrived
@@ -82,28 +85,28 @@ void Tic9::handleMessage(cMessage *msg)
         // Also delete the stored message and cancel the timeout event.
         EV << "Timer cancelled.\n";
         cancelEvent(timeoutEvent);
-        delete message;
+        delete packet;
 
         // Ready to send another one.
-        message = generateNewMessage();
-        sendCopyOf(message);
+        packet = generateNewPacket();
+        sendCopyOf(packet);
         scheduleAt(simTime()+timeout, timeoutEvent);
     }
 }
 
-cMessage *Tic9::generateNewMessage()
+cPacket *Tic9::generateNewPacket()
 {
     // Generate a message with a different name every time.
-    char msgname[20];
-    sprintf(msgname, "tic-%d", ++seq);
-    cMessage *msg = new cMessage(msgname);
-    return msg;
+    char pktname[20];
+    sprintf(pktname, "tic-%d", ++seq);
+    cPacket *pkt = new cPacket(pktname,0,960);
+    return pkt;
 }
 
-void Tic9::sendCopyOf(cMessage *msg)
+void Tic9::sendCopyOf(cPacket *pkt)
 {
-    // Duplicate message and send the copy.
-    cMessage *copy = (cMessage *)msg->dup();
+    // Duplicate packet and send the copy.
+    cPacket *copy = (cPacket *)pkt->dup();
     send(copy, "out");
 }
 
@@ -120,6 +123,8 @@ Define_Module(Toc9);
 
 void Toc9::handleMessage(cMessage *msg)
 {
+    cPacket *pkt=check_and_cast<cPacket *>(msg);
+
     if (uniform(0, 1) < 0.1) {
         EV << "\"Losing\" message " << msg << endl;
         bubble("message lost");

@@ -8,6 +8,9 @@
 //
 
 
+import ned.DatarateChannel;
+
+
 simple Tic9
 {
     parameters:
@@ -42,7 +45,7 @@ network myNet
                 @display("i=,gold;p=185,61");
         }
     connections:
-        tic.out --> {  delay = 100ms; } --> toc.in;
-        tic.in <-- {  delay = 100ms; } <-- toc.out;
+        toc.out --> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } --> tic.in;
+        tic.out --> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } --> toc.in;
 }
 
