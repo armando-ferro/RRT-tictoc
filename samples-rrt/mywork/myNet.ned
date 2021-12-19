@@ -14,9 +14,10 @@ import ned.IdealChannel;
 simple Injector
 {
     parameters:
-          volatile double delayTime @unit(s);   // delay before sending back message
-          volatile double lenPacket @unit(bits);   // Packet length function
-           @display("i=block/source");
+        volatile double delayTime @unit(s);   // delay before sending back message
+        volatile double lenPacket @unit(bits);   // Packet length function
+        int lenCtrlPacket @unit(bits);   // Control packet length function
+        @display("i=block/source");
     gates:
         output out;
 }

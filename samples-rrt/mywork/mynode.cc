@@ -23,17 +23,19 @@ class MyNode : public cSimpleModule
 {
   private:
     cMessage *timeoutPacket;  // holds pointer to the timeout self-message
-    int seq;  // message sequence number
     cPacket *packet;  // message that has to be re-sent on timeout
     cQueue queue;
     int retransmission=0;
+    int protId=0;
 
   public:
     MyNode();
     virtual ~MyNode();
 
   protected:
-    virtual void sendCopyOf(cPacket *pkt);
+    void sendCopyOf(cPacket *pkt);
+    void sendPacket(cPacket *pkt);
+    void checkNewPacket();
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
 };
@@ -56,6 +58,7 @@ MyNode::~MyNode()
 void MyNode::initialize()
 {
     EV << "Initialization of NODE: " << getName()<< "\n";
+    timeoutPacket = new(cMessage);
 }
 
 void MyNode::handleMessage(cMessage *msg)
@@ -63,7 +66,15 @@ void MyNode::handleMessage(cMessage *msg)
     if (msg == timeoutPacket) {
          EV << "Timeout expired, send a new packet and restarting timer\n";
          sendCopyOf(packet);
+         if(msg->isScheduled()){
+             EV << "ERROR Message already SHEDULLED" << msg;
+             cancelEvent(timeoutPacket);
+         }
          scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
+    } else if(msg->arrivedOn("in")){
+        EV << "NEW message" << msg << endl;
+        queue.insert(msg);
+        checkNewPacket();
     }
     else {  // message arrived
         cPacket *pkt=check_and_cast<cPacket *>(msg);
@@ -76,13 +87,10 @@ void MyNode::handleMessage(cMessage *msg)
          else {
              if(!strcmp(pkt->getName(),"ACK")){
                  EV << "RECIBIDO ACK\n";
-                delete packet;
+                 delete packet;
+                 packet = nullptr;      // To indicate finalization of Tx
                  cancelEvent(timeoutPacket);
-                 if((packet = (cPacket *) queue.pop())) {
-                     retransmission=0;
-                     sendCopyOf(packet);
-                     scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
-                 }
+                 checkNewPacket();
              } else if(!strcmp(pkt->getName(),"NACK")){
                  EV << "NACK\n";
                 ++retransmission;
@@ -113,11 +121,33 @@ void MyNode::sendCopyOf(cPacket *pkt)
     send(copy, "link$o");
 }
 
+void MyNode::sendPacket(cPacket *pkt)
+{
+    retransmission=0;
+    sendCopyOf(packet);
+    if(timeoutPacket->isScheduled()){
+        // Trace impossible events
+         EV << "ERROR in sendPacket Message already SHEDULLED" << timeoutPacket;
+         cancelEvent(timeoutPacket);
+    }
+    scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
+}
+void MyNode::checkNewPacket()
+{
+    if(queue.isEmpty()){
+          packet = nullptr;
+    }else if(!packet){  // Only if previous packet has been completed
+          sendPacket(packet = (cPacket *) queue.pop());
+    }
+}
+
+
 class Injector : public cSimpleModule
 {
   private:
     cMessage *timeoutEvent;  // holds pointer to the timeout self-message
-    int seq;  // message sequence number
+    int seq=0;  // message sequence number
+    int lenCtrl; // Control header length
 
   public:
     Injector();
@@ -140,7 +170,8 @@ void Injector::initialize()
 {
     simtime_t delay;
     delay =par("delayTime");
-    EV << "Initialization of INJECTION nextedelay=" << delay << "\n";
+    lenCtrl = (int) par("lenCtrlPacket");
+    EV << "Initialization of INJECTION nextdelay=" << delay << endl;
 
     timeoutEvent = new(cMessage);
     scheduleAt(simTime()+ delay, timeoutEvent);
@@ -152,16 +183,15 @@ Injector::~Injector()
 
 void Injector::handleMessage(cMessage *msg)
 {
-    EV << "RECIBIDO EVENTO EN INYEcTOR\n";
+ //   EV << "RECIBIDO EVENTO EN INYEcTOR\n";
 
     if (msg == timeoutEvent) {
     double len;
-        len=  par("lenPacket");
+        len = par("lenPacket");
+  //      EV << "Timeout expired, send(len=" << len << ") a new packet and restarting timer\n";
 
-        EV << "Timeout expired, send(len=" << len << ") a new packet and restarting timer\n";
-
-        send(generateNewPacket((int) len), "out");
-        EV << "Packet SEND len=" << len <<"\n";
+        send(generateNewPacket(len+lenCtrl), "out");
+ //       EV << "Packet SEND len=" << len <<"\n";
 
         scheduleAt(simTime()+par("delayTime"), timeoutEvent);
     }
