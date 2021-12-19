@@ -9,24 +9,29 @@
 
 
 import ned.DatarateChannel;
+import ned.IdealChannel;
 
-
-simple Tic9
+simple Injector
 {
     parameters:
-        @display("i=block/routing");
+          volatile double delayTime @unit(s);   // delay before sending back message
+          volatile double lenPacket @unit(bits);   // Packet length function
+           @display("i=block/source");
     gates:
-        input in;
         output out;
 }
 
-simple Toc9
+simple MyNode
 {
     parameters:
-        @display("i=block/process");
+
+        volatile double timeoutPacket @unit(s);   // timeout to resend packet
+        int lenCtrlPacket @unit(bits);   // Control packet length function
+        @display("i=block/routing");
     gates:
-        input in;
-        output out;
+        input in @loose;
+    	output out @loose;
+        inout link;
 }
 
 //
@@ -36,16 +41,20 @@ network myNet
 {
     @display("bgb=210,108");
     submodules:
-        tic: Tic9 {
+        injector: Injector {
             parameters:
-                @display("i=,cyan;p=72.8,60.48");
+              @display("i=,cyan;p=28,26.32");
         }
-        toc: Toc9 {
+        node1: MyNode {
+            parameters:
+                @display("i=,cyan;p=85.12,60.48");
+        }
+        node2: MyNode {
             parameters:
                 @display("i=,gold;p=185,61");
         }
     connections:
-        toc.out --> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } --> tic.in;
-        tic.out --> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } --> toc.in;
+        injector.out --> IdealChannel --> node1.in;
+        node1.link <--> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } <--> node2.link;
 }
 

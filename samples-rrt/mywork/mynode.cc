@@ -19,121 +19,160 @@ using namespace omnetpp;
  * in real life it's usually more practical to keep a copy of the original
  * packet so that we can re-send it without the need to build it again.
  */
-class Tic9 : public cSimpleModule
+class MyNode : public cSimpleModule
 {
   private:
-    simtime_t timeout;  // timeout
-    cMessage *timeoutEvent;  // holds pointer to the timeout self-message
+    cMessage *timeoutPacket;  // holds pointer to the timeout self-message
     int seq;  // message sequence number
     cPacket *packet;  // message that has to be re-sent on timeout
+    cQueue queue;
+    int retransmission=0;
 
   public:
-    Tic9();
-    virtual ~Tic9();
+    MyNode();
+    virtual ~MyNode();
 
   protected:
-    virtual cPacket *generateNewPacket();
     virtual void sendCopyOf(cPacket *pkt);
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
 };
 
-Define_Module(Tic9);
+Define_Module(MyNode);
 
-Tic9::Tic9()
+MyNode::MyNode()
 {
-    timeoutEvent = nullptr;
+    timeoutPacket = nullptr;
+
     packet = nullptr;
 }
 
-Tic9::~Tic9()
+MyNode::~MyNode()
 {
-    cancelAndDelete(timeoutEvent);
+    cancelAndDelete(timeoutPacket);
     delete packet;
 }
 
-void Tic9::initialize()
+void MyNode::initialize()
 {
-    // Initialize variables.
-    seq = 0;
-    timeout = 1.0;
-    timeoutEvent = new cMessage("timeoutEvent");
-
-    // Generate and send initial message.
-    EV << "Sending initial message\n";
-    packet = generateNewPacket();
-    sendCopyOf(packet);
-    scheduleAt(simTime()+timeout, timeoutEvent);
+    EV << "Initialization of NODE: " << getName()<< "\n";
 }
 
-void Tic9::handleMessage(cMessage *msg)
+void MyNode::handleMessage(cMessage *msg)
 {
-   // cPacket *pkt=check_and_cast<cPacket *>(msg);
-
-    if (msg == timeoutEvent) {
-        // If we receive the timeout event, that means the packet hasn't
-        // arrived in time and we have to re-send it.
-        EV << "Timeout expired, resending message and restarting timer\n";
-        sendCopyOf(packet);
-        scheduleAt(simTime()+timeout, timeoutEvent);
+    if (msg == timeoutPacket) {
+         EV << "Timeout expired, send a new packet and restarting timer\n";
+         sendCopyOf(packet);
+         scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
     }
     else {  // message arrived
-            // Acknowledgement received!
-        EV << "Received: " << msg->getName() << "\n";
-        delete msg;
+        cPacket *pkt=check_and_cast<cPacket *>(msg);
 
-        // Also delete the stored message and cancel the timeout event.
-        EV << "Timer cancelled.\n";
-        cancelEvent(timeoutEvent);
-        delete packet;
+         if (uniform(0, 1) < 0.1) {
+             EV << "\"Losing\" message " << msg << endl;
+             bubble("message lost");
+             delete msg;
+         }
+         else {
+             if(!strcmp(pkt->getName(),"ACK")){
+                 EV << "RECIBIDO ACK\n";
+                delete packet;
+                 cancelEvent(timeoutPacket);
+                 if((packet = (cPacket *) queue.pop())) {
+                     retransmission=0;
+                     sendCopyOf(packet);
+                     scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
+                 }
+             } else if(!strcmp(pkt->getName(),"NACK")){
+                 EV << "NACK\n";
+                ++retransmission;
+                 cancelEvent(timeoutPacket);
+                 sendCopyOf(packet);
+                 scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
 
-        // Ready to send another one.
-        packet = generateNewPacket();
-        sendCopyOf(packet);
-        scheduleAt(simTime()+timeout, timeoutEvent);
+             } else {
+                 /* Take care with line occupation */
+                 if(pkt->hasBitError()) {
+                     EV << msg << " received with ERROR, sending back NACK.\n";
+                     send(new cPacket("NACK",0,par("lenCtrlPacket")),"link$o");
+                 } else {
+                     EV << msg << " received, sending back ACK.\n";
+                     send(new cPacket("ACK",0,par("lenCtrlPacket")),"link$o");
+                 }
+             }
+             delete msg;
+
+         }
     }
 }
 
-cPacket *Tic9::generateNewPacket()
-{
-    // Generate a message with a different name every time.
-    char pktname[20];
-    sprintf(pktname, "tic-%d", ++seq);
-    cPacket *pkt = new cPacket(pktname,0,960);
-    return pkt;
-}
-
-void Tic9::sendCopyOf(cPacket *pkt)
+void MyNode::sendCopyOf(cPacket *pkt)
 {
     // Duplicate packet and send the copy.
     cPacket *copy = (cPacket *)pkt->dup();
-    send(copy, "out");
+    send(copy, "link$o");
 }
 
-/**
- * Sends back an acknowledgement -- or not.
- */
-class Toc9 : public cSimpleModule
+class Injector : public cSimpleModule
 {
+  private:
+    cMessage *timeoutEvent;  // holds pointer to the timeout self-message
+    int seq;  // message sequence number
+
+  public:
+    Injector();
+    virtual ~Injector();
+
   protected:
+    virtual cPacket *generateNewPacket(int);
+    virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
 };
 
-Define_Module(Toc9);
+Define_Module(Injector);
 
-void Toc9::handleMessage(cMessage *msg)
+Injector::Injector()
 {
-    cPacket *pkt=check_and_cast<cPacket *>(msg);
+    timeoutEvent = nullptr;
+}
 
-    if (uniform(0, 1) < 0.1) {
-        EV << "\"Losing\" message " << msg << endl;
-        bubble("message lost");
-        delete msg;
+void Injector::initialize()
+{
+    simtime_t delay;
+    delay =par("delayTime");
+    EV << "Initialization of INJECTION nextedelay=" << delay << "\n";
+
+    timeoutEvent = new(cMessage);
+    scheduleAt(simTime()+ delay, timeoutEvent);
+}
+Injector::~Injector()
+{
+    cancelAndDelete(timeoutEvent);
+}
+
+void Injector::handleMessage(cMessage *msg)
+{
+    EV << "RECIBIDO EVENTO EN INYEcTOR\n";
+
+    if (msg == timeoutEvent) {
+    double len;
+        len=  par("lenPacket");
+
+        EV << "Timeout expired, send(len=" << len << ") a new packet and restarting timer\n";
+
+        send(generateNewPacket((int) len), "out");
+        EV << "Packet SEND len=" << len <<"\n";
+
+        scheduleAt(simTime()+par("delayTime"), timeoutEvent);
     }
-    else {
-        EV << msg << " received, sending back an acknowledgement.\n";
-        delete msg;
-        send(new cMessage("ack"), "out");
-    }
+}
+
+cPacket *Injector::generateNewPacket(int len)
+{
+    // Generate a message with a different name every time.
+    char pktname[20];
+    sprintf(pktname, "PKT-%d", ++seq);
+    cPacket *pkt = new cPacket(pktname,0,len);
+    return pkt;
 }
 
