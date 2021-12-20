@@ -22,10 +22,10 @@ simple Injector
         output out;
 }
 
+
 simple MyNode
 {
     parameters:
-
         volatile double timeoutPacket @unit(s);   // timeout to resend packet
         int lenCtrlPacket @unit(bits);   // Control packet length function
         @display("i=block/routing");
@@ -35,9 +35,25 @@ simple MyNode
         inout link;
 }
 
-//
-// Same as Tictoc8.
-//
+module Switch
+{
+    gates:
+        input sourcein @loose;
+    	output sinkout @loose;        
+        inout links[];      
+    submodules:
+        switch: CoreSwitch;
+        nlink[sizeof(links)]:MyNode;
+    connections:
+        sourcein --> switch.sourcein;
+        sinkout <-- switch.sinkout;
+        for i=0..sizeof(links)-1 {
+            switch.out++ --> nlink[i].in;
+            switch.in++ <-- nlink[i].out; 
+        	links[i] <--> nlink[i].link;
+        }
+}
+
 network myNet
 {
     @display("bgb=210,108");
@@ -46,16 +62,16 @@ network myNet
             parameters:
               @display("i=,cyan;p=28,26.32");
         }
-        node1: MyNode {
+        node1: Switch {
             parameters:
                 @display("i=,cyan;p=85.12,60.48");
         }
-        node2: MyNode {
+        node2: Switch {
             parameters:
                 @display("i=,gold;p=185,61");
         }
     connections:
-        injector.out --> IdealChannel --> node1.in;
-        node1.link <--> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } <--> node2.link;
+        injector.out --> IdealChannel --> node1.sourcein;
+        node1.links++ <--> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } <--> node2.links++;
 }
 
