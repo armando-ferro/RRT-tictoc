@@ -19,7 +19,7 @@ using namespace omnetpp;
  * in real life it's usually more practical to keep a copy of the original
  * packet so that we can re-send it without the need to build it again.
  */
-class MyNode : public cSimpleModule
+class MyLink : public cSimpleModule
 {
   private:
     cMessage *timeoutPacket;  // holds pointer to the timeout self-message
@@ -29,8 +29,8 @@ class MyNode : public cSimpleModule
     int protId=0;
 
   public:
-    MyNode();
-    virtual ~MyNode();
+    MyLink();
+    virtual ~MyLink();
 
   protected:
     void sendCopyOf(cPacket *pkt);
@@ -40,28 +40,28 @@ class MyNode : public cSimpleModule
     virtual void handleMessage(cMessage *msg) override;
 };
 
-Define_Module(MyNode);
+Define_Module(MyLink);
 
-MyNode::MyNode()
+MyLink::MyLink()
 {
     timeoutPacket = nullptr;
 
     packet = nullptr;
 }
 
-MyNode::~MyNode()
+MyLink::~MyLink()
 {
     cancelAndDelete(timeoutPacket);
     delete packet;
 }
 
-void MyNode::initialize()
+void MyLink::initialize()
 {
     EV << "Initialization of NODE: " << getName()<< "\n";
     timeoutPacket = new(cMessage);
 }
 
-void MyNode::handleMessage(cMessage *msg)
+void MyLink::handleMessage(cMessage *msg)
 {
     if (msg == timeoutPacket) {
          EV << "Timeout expired, send a new packet and restarting timer\n";
@@ -114,14 +114,14 @@ void MyNode::handleMessage(cMessage *msg)
     }
 }
 
-void MyNode::sendCopyOf(cPacket *pkt)
+void MyLink::sendCopyOf(cPacket *pkt)
 {
     // Duplicate packet and send the copy.
     cPacket *copy = (cPacket *)pkt->dup();
     send(copy, "link$o");
 }
 
-void MyNode::sendPacket(cPacket *pkt)
+void MyLink::sendPacket(cPacket *pkt)
 {
     retransmission=0;
     sendCopyOf(packet);
@@ -132,7 +132,7 @@ void MyNode::sendPacket(cPacket *pkt)
     }
     scheduleAt(simTime()+par("timeoutPacket"), timeoutPacket);
 }
-void MyNode::checkNewPacket()
+void MyLink::checkNewPacket()
 {
     if(queue.isEmpty()){
           packet = nullptr;

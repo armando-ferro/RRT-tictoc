@@ -23,7 +23,7 @@ simple Injector
 }
 
 
-simple MyNode
+simple MyLink
 {
     parameters:
         volatile double timeoutPacket @unit(s);   // timeout to resend packet
@@ -43,7 +43,7 @@ module Switch
         inout links[];      
     submodules:
         switch: CoreSwitch;
-        nlink[sizeof(links)]:MyNode;
+        nlink[sizeof(links)]:MyLink;
     connections:
         sourcein --> switch.sourcein;
         sinkout <-- switch.sinkout;
