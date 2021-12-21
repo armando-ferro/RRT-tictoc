@@ -25,6 +25,8 @@ using namespace omnetpp;
  */
 class CoreSwitch : public cSimpleModule
 {
+  std::vector<double> weigth;
+
   protected:
     virtual void initialize();
     virtual void handleMessage(cMessage *msg);

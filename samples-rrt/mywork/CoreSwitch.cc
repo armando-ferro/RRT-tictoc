@@ -17,13 +17,38 @@
 
 Define_Module(CoreSwitch);
 
+
 void CoreSwitch::initialize()
 {
+    const char *routing = par("routing").stringValue();
+    EV << "ROUTING:" << routing << endl;
+    weigth = cStringTokenizer(routing).asDoubleVector();
+    double acum=0.0;
+    for(auto &i:weigth) {
+        acum+=i;
+        if(acum >= 1.0){
+            i=1.0;
+            break;
+        } else
+            i=acum;
+    }
+    EV << "WEIGTH:" << acum << endl;
+
     // TODO - Generated method body
 }
 
 void CoreSwitch::handleMessage(cMessage *msg)
 {
+    double rnd;
+    int i;
+
+    rnd=uniform(0, 1);
+
+    for(i=0; i< weigth.size();i++) {
+        if(rnd <= weigth[i])
+            break;
+    }
+
     // TODO - Generated method body
-    send(msg,"out",0);
+    send(msg,"out",i);
 }

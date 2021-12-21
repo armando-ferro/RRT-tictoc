@@ -20,10 +20,12 @@
 simple CoreSwitch
 {
     parameters:
-       
+        string routing=default("1.0");
+        
     gates:
         input sourcein @loose;
     	output sinkout @loose;
         input in[];
         output out[];
 }
+

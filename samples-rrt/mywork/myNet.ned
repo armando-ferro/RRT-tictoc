@@ -37,6 +37,8 @@ simple MyLink
 
 module Switch
 {
+    parameters:
+        
     gates:
         input sourcein @loose;
     	output sinkout @loose;        
@@ -57,6 +59,12 @@ module Switch
 network myNet
 {
     @display("bgb=210,108");
+    types:
+        channel RealChannel extends ned.DatarateChannel {
+            delay = default(0.1s); 
+            datarate = default(9600000bps); 
+            per = default(0.1);
+        }
     submodules:
         injector: Injector {
             parameters:
@@ -64,14 +72,16 @@ network myNet
         }
         node1: Switch {
             parameters:
-                @display("i=,cyan;p=85.12,60.48");
+              switch.routing = "1.0";
+              @display("i=,cyan;p=85.12,60.48");
         }
         node2: Switch {
             parameters:
+                switch.routing = "0.5 0.5";
                 @display("i=,gold;p=185,61");
         }
     connections:
         injector.out --> IdealChannel --> node1.sourcein;
-        node1.links++ <--> DatarateChannel {  delay = default(0.1s); datarate = default(9600000bps); per = default(0.1); } <--> node2.links++;
+        node1.links++ <--> RealChannel <--> node2.links++;
 }
 
