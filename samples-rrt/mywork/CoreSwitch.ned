@@ -20,7 +20,7 @@
 simple CoreSwitch
 {
     parameters:
-        string routing=default("1.0");
+        string routing=default("");
         
     gates:
         input sourcein @loose;

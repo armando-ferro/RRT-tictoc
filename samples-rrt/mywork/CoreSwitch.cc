@@ -18,37 +18,53 @@
 Define_Module(CoreSwitch);
 
 
+bool isProbEnd(double p)
+{
+        if(p<=1.0)
+                return(false);
+        return(true);
+}
+
+void acumVectorDouble(std::vector<double>&array)
+{
+double acum=0.0;
+
+        for(auto &it:array) {
+                it = (acum += (double) it);
+        }
+        if(acum < 1.0)
+                array.push_back(1.0);
+}
+
 void CoreSwitch::initialize()
 {
     const char *routing = par("routing").stringValue();
     EV << "ROUTING:" << routing << endl;
     weigth = cStringTokenizer(routing).asDoubleVector();
-    double acum=0.0;
-    for(auto &i:weigth) {
-        acum+=i;
-        if(acum >= 1.0){
-            i=1.0;
-            break;
-        } else
-            i=acum;
-    }
-    EV << "WEIGTH:" << acum << endl;
+     EV << "WEIGTH:";
 
-    // TODO - Generated method body
+    if(weigth.size())
+        acumVectorDouble(weigth);
+
+    for (auto it = weigth.cbegin(); it != weigth.cend(); it++) {
+        EV << *it << ' ';
+    }
+    EV << endl;
+
 }
 
 void CoreSwitch::handleMessage(cMessage *msg)
 {
     double rnd;
     int i;
-
-    rnd=uniform(0, 1);
-
-    for(i=0; i< weigth.size();i++) {
-        if(rnd <= weigth[i])
-            break;
+    if(weigth.size()==0){
+        delete msg;
+    } else {
+        rnd=uniform(0, 1);
+        for(i=0; i< weigth.size();i++) {
+            if(rnd <= weigth[i])
+                break;
+        }
+        send(msg,"out",i);
     }
-
-    // TODO - Generated method body
-    send(msg,"out",i);
 }
