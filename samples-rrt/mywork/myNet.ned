@@ -17,6 +17,7 @@ simple Injector
         volatile double delayTime @unit(s);   // delay before sending back message
         volatile double lenPacket @unit(bits);   // Packet length function
         int lenCtrlPacket @unit(bits);   // Control packet length function
+        int id_Flow=default(0);		// Flow identification
         @display("i=block/source");
     gates:
         output out;
@@ -76,14 +77,17 @@ network myNet
         injector1: Injector {
             parameters:
                 @display("i=,cyan;p=26,103");
+                id_Flow = 1;
         }
         injector2: Injector {
             parameters:
                 @display("i=,cyan;p=91.840004,12.88");
+                id_Flow = 2;
         }
         injector5: Injector {
             parameters:
                 @display("i=,cyan;p=91,175");
+                id_Flow = 3;
         }
         node1: Switch {
             parameters:

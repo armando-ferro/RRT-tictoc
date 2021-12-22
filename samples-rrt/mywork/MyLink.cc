@@ -11,6 +11,7 @@
 #include <string.h>
 #include <omnetpp.h>
 #include <algorithm>
+#include <proto_m.h>
 
 
 using namespace omnetpp;
@@ -156,6 +157,7 @@ class Injector : public cSimpleModule
     cMessage *timeoutEvent;  // holds pointer to the timeout self-message
     int seq=0;  // message sequence number
     int lenCtrl; // Control header length
+    int id_Flow;
 
   public:
     Injector();
@@ -179,6 +181,7 @@ void Injector::initialize()
     simtime_t delay;
     delay =par("delayTime");
     lenCtrl = (int) par("lenCtrlPacket");
+    id_Flow = par("id_Flow");
     EV << "Initialization of INJECTION nextdelay=" << delay << endl;
 
     timeoutEvent = new(cMessage);
@@ -209,8 +212,12 @@ cPacket *Injector::generateNewPacket(int len)
 {
     // Generate a message with a different name every time.
     char pktname[20];
-    sprintf(pktname, "PKT-%d", ++seq);
-    cPacket *pkt = new cPacket(pktname,0,len);
+    sprintf(pktname, "PKT%d-%d",id_Flow,seq);
+    Proto *pkt = new Proto(pktname);
+    pkt->setBitLength(len);
+    pkt->setId_flow(id_Flow);
+    pkt->setSeq(seq++);
+
     return pkt;
 }
 
