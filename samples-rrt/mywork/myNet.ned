@@ -28,6 +28,7 @@ simple MyLink
     parameters:
         volatile double timeoutPacket @unit(s);   // timeout to resend packet
         int lenCtrlPacket @unit(bits);   // Control packet length function
+        string protocol=default("S&W");
         @display("i=block/routing");
     gates:
         input in @loose;
@@ -38,16 +39,18 @@ simple MyLink
 module Switch
 {
     parameters:
-        @display("i=block/routing");
+        @display("i=block/routing;bgb=277,114");
         @display("bgb=218,119");
     gates:
         input sourcein @loose;
         output sinkout @loose;
         inout links[];
     submodules:
-        switch: CoreSwitch;
+        switch: CoreSwitch {
+            @display("p=95,60");
+        }
         nlink[sizeof(links)]: MyLink {
-            @display("p=146,61");
+            @display("p=206,60");
         }
     connections:
         sourcein --> switch.sourcein;
@@ -61,7 +64,7 @@ module Switch
 
 network myNet
 {
-    @display("bgb=337.68,196");
+    @display("bgb=368,195");
     types:
         channel RealChannel extends ned.DatarateChannel
         {
@@ -72,7 +75,7 @@ network myNet
     submodules:
         injector1: Injector {
             parameters:
-                @display("i=,cyan;p=27.44,99.68");
+                @display("i=,cyan;p=26,103");
         }
         injector2: Injector {
             parameters:
@@ -80,27 +83,27 @@ network myNet
         }
         injector5: Injector {
             parameters:
-                @display("i=,cyan;p=71.68,173.6");
+                @display("i=,cyan;p=91,175");
         }
         node1: Switch {
             parameters:
-                @display("i=,gold;p=71.68,112");
+                @display("i=,gold;p=114,103");
         }
         node2: Switch {
             parameters:
-                @display("i=,gold;p=128.24,68.32");
+                @display("i=,gold;p=171,59");
         }
         node3: Switch {
             parameters:
-                @display("i=,gold;p=212.24,68.32");
+                @display("i=,gold;p=255,59");
         }
         node4: Switch {
             parameters:
-                @display("i=,gold;p=212.24,147.84");
+                @display("i=,gold;p=255,138");
         }
         node5: Switch {
             parameters:
-                @display("i=,gold;p=128.24,147.84");
+                @display("i=,gold;p=171,138");
         }
 
     connections:

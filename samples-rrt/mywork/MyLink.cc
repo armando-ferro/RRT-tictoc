@@ -10,8 +10,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <omnetpp.h>
+#include <algorithm>
+
 
 using namespace omnetpp;
+using namespace std;
 
 /**
  * In the previous model we just created another packet if we needed to
@@ -27,6 +30,7 @@ class MyLink : public cSimpleModule
     cQueue queue;
     int retransmission=0;
     int protId=0;
+    vector<std::string>protocol={"None","S&W","GBN"};
 
   public:
     MyLink();
@@ -57,7 +61,11 @@ MyLink::~MyLink()
 
 void MyLink::initialize()
 {
-    EV << "Initialization of NODE: " << getName()<< "\n";
+
+    string proto = par("protocol");
+    protId = std::find(protocol.begin(),protocol.end(),proto)-protocol.begin();
+    EV << "Initialization of NODE: " << getName() << "  PROT:" << protId << "\n";
+
     timeoutPacket = new(cMessage);
 }
 
