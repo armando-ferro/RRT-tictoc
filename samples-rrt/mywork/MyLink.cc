@@ -17,12 +17,18 @@
 using namespace omnetpp;
 using namespace std;
 
+
+vector<std::string>ctrlName={"","ACK","NACK","INFO"};
+
 /**
  * In the previous model we just created another packet if we needed to
  * retransmit. This is OK because the packet didn't contain much, but
  * in real life it's usually more practical to keep a copy of the original
  * packet so that we can re-send it without the need to build it again.
  */
+
+
+
 class MyLink : public cSimpleModule
 {
   private:
@@ -31,6 +37,9 @@ class MyLink : public cSimpleModule
     cQueue queue;
     int retransmission=0;
     int protId=0;
+    int lenCtrlPacket;
+    int ns=0;
+    int nr=0;
     vector<std::string>protocol={"None","S&W","GBN"};
 
   public:
@@ -40,6 +49,7 @@ class MyLink : public cSimpleModule
   protected:
     void sendCopyOf(cPacket *pkt);
     void sendPacket(cPacket *pkt);
+    void sendCtrl(int type,char *link);
     void checkNewPacket();
     virtual void initialize() override;
     virtual void handleMessage(cMessage *msg) override;
@@ -64,10 +74,19 @@ void MyLink::initialize()
 {
 
     string proto = par("protocol");
+    lenCtrlPacket = par("lenCtrlPacket");
     protId = std::find(protocol.begin(),protocol.end(),proto)-protocol.begin();
     EV << "Initialization of NODE: " << getName() << "  PROT:" << protId << "\n";
 
     timeoutPacket = new(cMessage);
+}
+
+void MyLink::sendCtrl(int type,char *link)
+{
+    Proto *pkt=new Proto(ctrlName[type].c_str());
+    pkt->setType(type);
+    pkt->setBitLength(lenCtrlPacket);
+    send(pkt,link);
 }
 
 void MyLink::handleMessage(cMessage *msg)
@@ -86,7 +105,7 @@ void MyLink::handleMessage(cMessage *msg)
         checkNewPacket();
     }
     else {  // message arrived
-        cPacket *pkt=check_and_cast<cPacket *>(msg);
+        Proto *pkt=check_and_cast<Proto *>(msg);
 
          if (uniform(0, 1) < 0.1) {
              EV << "\"Losing\" message " << msg << endl;
@@ -94,13 +113,13 @@ void MyLink::handleMessage(cMessage *msg)
              delete msg;
          }
          else {
-             if(!strcmp(pkt->getName(),"ACK")){
+             if(pkt->getType()==TYPE_ACK){
                  EV << "RECIBIDO ACK\n";
                  delete packet;
                  packet = nullptr;      // To indicate finalization of Tx
                  cancelEvent(timeoutPacket);
                  checkNewPacket();
-             } else if(!strcmp(pkt->getName(),"NACK")){
+             } else if(pkt->getType()==TYPE_NACK){
                  EV << "NACK\n";
                 ++retransmission;
                  cancelEvent(timeoutPacket);
@@ -111,10 +130,10 @@ void MyLink::handleMessage(cMessage *msg)
                  /* Take care with line occupation */
                  if(pkt->hasBitError()) {
                      EV << msg << " received with ERROR, sending back NACK.\n";
-                     send(new cPacket("NACK",0,par("lenCtrlPacket")),"link$o");
+                     sendCtrl(TYPE_NACK,"link$o");
                  } else {
                      EV << msg << " received, sending back ACK.\n";
-                     send(new cPacket("ACK",0,par("lenCtrlPacket")),"link$o");
+                     sendCtrl(TYPE_ACK,"link$o");
                  }
              }
              delete msg;
@@ -212,7 +231,7 @@ cPacket *Injector::generateNewPacket(int len)
 {
     // Generate a message with a different name every time.
     char pktname[20];
-    sprintf(pktname, "PKT%d-%d",id_Flow,seq);
+    sprintf(pktname, "%s%d-%d",ctrlName[TYPE_INFO].c_str(),id_Flow,seq);
     Proto *pkt = new Proto(pktname);
     pkt->setBitLength(len);
     pkt->setId_flow(id_Flow);
