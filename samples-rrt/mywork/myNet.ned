@@ -17,7 +17,7 @@ simple Injector
         volatile double delayTime @unit(s);   // delay before sending back message
         volatile double lenPacket @unit(bits);   // Packet length function
         int lenCtrlPacket @unit(bits);   // Control packet length function
-        int id_Flow=default(0);		// Flow identification
+        int id_Flow = default(0);		// Flow identification
         @display("i=block/source");
     gates:
         output out;
@@ -29,8 +29,8 @@ simple MyLink
     parameters:
         volatile double timeoutPacket @unit(s);   // timeout to resend packet
         int lenCtrlPacket @unit(bits);   // Control packet length function
-        string protocol=default("S&W");
-        @display("i=block/routing");
+        string protocol = default("S&W");
+        @display("i=block/queue");
     gates:
         input in @loose;
         output out @loose;
@@ -40,7 +40,7 @@ simple MyLink
 module Switch
 {
     parameters:
-        @display("i=block/routing;bgb=277,114");
+        @display("i=block/broadcast;bgb=277,114");
         @display("bgb=218,119");
     gates:
         input sourcein @loose;
@@ -48,7 +48,7 @@ module Switch
         inout links[];
     submodules:
         switch: CoreSwitch {
-            @display("p=95,60");
+            @display("p=95,60;i=block/switch");
         }
         nlink[sizeof(links)]: MyLink {
             @display("p=206,60");
